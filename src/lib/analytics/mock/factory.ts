@@ -25,18 +25,23 @@ function hash(s: string): number {
 
 export interface MockMetricSpec {
     format: MetricFormat
-    aggregate: 'sum' | 'mean'   // ← explicit, no inference
-    base: number
-    variance: number
-    trendPerDay?: number
-    weekendDip?: number
+    /** How daily values combine over a range. Counts sum; rates and averages mean. */
+    aggregate: 'sum' | 'mean'
+    base: number          // typical daily value
+    variance: number      // 0..1, day-to-day noise
+    trendPerDay?: number  // additive drift, e.g. 0.4 = slowly growing
+    weekendDip?: number   // 0..1 quieter on Sat/Sun; negative = busier
 }
 
 export interface MockSourceConfig {
     id: string
     metrics: Record<MetricId, MockMetricSpec>
     breakdowns: Record<MetricId, { label: string; weight: number }[]>
-    ranked: Record<MetricId, { labels: string[]; base: number; meta?: (l: string) => Record<string, string> }>
+    ranked: Record<MetricId, {
+        labels: string[]
+        base: number
+        meta?: (label: string) => Record<string, string>
+    }>
 }
 
 function eachDay(range: DateRange): Date[] {
@@ -68,14 +73,18 @@ function bucketKey(d: Date, bucket: Bucket): string {
     return monday.toISOString().slice(0, 10)
 }
 
+function combine(vals: number[], aggregate: 'sum' | 'mean'): number {
+    const sum = vals.reduce((a, b) => a + b, 0)
+    const v = aggregate === 'mean' ? sum / Math.max(1, vals.length) : sum
+    return Math.round(v * 100) / 100
+}
+
 export function createMockSource(config: MockSourceConfig): AnalyticsSource {
     const delay = <T,>(v: T) => new Promise<T>(r => setTimeout(() => r(v), 120))
 
     function totalFor(id: MetricId, spec: MockMetricSpec, range: DateRange): number {
-        const days = eachDay(range)
-        const vals = days.map((d, i) => dayValue(id, spec, d, i))
-        const sum = vals.reduce((a, b) => a + b, 0)
-        return spec.aggregate === 'mean' ? sum / Math.max(1, vals.length) : sum
+        const vals = eachDay(range).map((d, i) => dayValue(id, spec, d, i))
+        return combine(vals, spec.aggregate)
     }
 
     return {
@@ -93,8 +102,8 @@ export function createMockSource(config: MockSourceConfig): AnalyticsSource {
                 return {
                     id,
                     format: spec.format,
-                    value: Math.round(totalFor(id, spec, range) * 100) / 100,
-                    previousValue: Math.round(totalFor(id, spec, prev) * 100) / 100,
+                    value: totalFor(id, spec, range),
+                    previousValue: totalFor(id, spec, prev),
                 }
             })
             return delay(out)
@@ -103,19 +112,26 @@ export function createMockSource(config: MockSourceConfig): AnalyticsSource {
         async getSeries(id, range, bucket): Promise<Series> {
             const spec = config.metrics[id]
             if (!spec) throw new Error(`[${config.id}] unknown metric: ${id}`)
+
             const buckets = new Map<string, number[]>()
             eachDay(range).forEach((d, i) => {
                 const k = bucketKey(d, bucket)
                 if (!buckets.has(k)) buckets.set(k, [])
                 buckets.get(k)!.push(dayValue(id, spec, d, i))
             })
-            const points = [...buckets.entries()].map(([t, vals]) => ({
+
+            // Drop leading/trailing partial buckets: a sum over 1 day is not
+            // comparable to a sum over 7, and renders as a fake cliff.
+            const expected = bucket === 'day' ? 1 : bucket === 'week' ? 7 : 28
+            const entries = [...buckets.entries()]
+            if (entries.length > 2) {
+                if (entries[0][1].length < expected) entries.shift()
+                if (entries[entries.length - 1][1].length < expected) entries.pop()
+            }
+
+            const points = entries.map(([t, vals]) => ({
                 t,
-                value: Math.round(
-                    (spec.aggregate === 'mean'
-                        ? vals.reduce((a, b) => a + b, 0) / vals.length
-                        : vals.reduce((a, b) => a + b, 0)) * 100
-                ) / 100,
+                value: combine(vals, spec.aggregate),
             }))
             return delay({ id, points })
         },
