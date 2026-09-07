@@ -14,6 +14,7 @@ export const esignPack: DashboardPack = {
         { type: 'series', metric: 'documents.signed', title: 'Signing Volume', chart: 'area' },
         { type: 'breakdown', metric: 'documents.status', title: 'Status Mix', chart: 'donut' },
         { type: 'ranked', metric: 'signers.top', title: 'Top Signers', limit: 10, valueLabel: 'Documents' },
+        { type: 'series', metric: 'approvals.pending', title: 'Pending Approvals', chart: 'bar' },
     ],
 }
 
@@ -31,6 +32,7 @@ export const ecommercePack: DashboardPack = {
         { type: 'series', metric: 'revenue.gross', title: 'Revenue', chart: 'area' },
         { type: 'breakdown', metric: 'orders.status', title: 'Order Status', chart: 'donut' },
         { type: 'ranked', metric: 'products.top', title: 'Top Products', limit: 10, valueLabel: 'Units' },
+        { type: 'series', metric: 'orders.placed', title: 'Order Volume', chart: 'bar' },
     ],
 }
 

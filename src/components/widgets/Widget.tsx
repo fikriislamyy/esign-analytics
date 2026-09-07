@@ -36,7 +36,7 @@ export async function Widget({
 
     const rows = await source.getRanked(config.metric, range, config.limit)
     return (
-        <ChartFrame title={config.title} fixedHeight={false} className="lg:col-span-2">
+        <ChartFrame title={config.title} fixedHeight={false}>
             <RankedList rows={rows} valueLabel={config.valueLabel} />
         </ChartFrame>
     )
