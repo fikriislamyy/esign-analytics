@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { ExportButton } from '@/components/controls/ExportButton'
 import { RangePicker } from '@/components/controls/RangePicker'
 import { KpiCard } from '@/components/kpi/KpiCard'
 import { ReportsSection } from '@/components/reports/ReportsSection'
@@ -74,8 +75,9 @@ export default async function Page({
         </Link>
       </nav>
 
-      <div className="mt-3">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
         <RangePicker packId={pack.id} current={rangeId} />
+        <ExportButton packId={pack.id} rangeId={rangeId} />
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">{cards}</div>
