@@ -1,23 +1,32 @@
+import Link from 'next/link'
+import { RangePicker } from '@/components/controls/RangePicker'
 import { KpiCard } from '@/components/kpi/KpiCard'
 import { ReportsSection } from '@/components/reports/ReportsSection'
 import { Widget } from '@/components/widgets/Widget'
 import { ecommercePack, esignPack } from '@/lib/analytics/packs'
+import {
+  DEFAULT_RANGE,
+  bucketFor,
+  isRangeId,
+  resolveRange,
+} from '@/lib/analytics/range'
 import { getSource } from '@/lib/analytics/registry'
 
-const TAB_BASE = 'rounded-lg border px-3 py-1.5'
 const TAB_ON = 'rounded-lg border border-indigo-500 px-3 py-1.5 text-indigo-500'
 const TAB_OFF = 'rounded-lg border border-neutral-700 px-3 py-1.5'
 
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ pack?: string }>
+  searchParams: Promise<{ pack?: string; range?: string }>
 }) {
   const params = await searchParams
   const pack = params.pack === 'ecommerce' ? ecommercePack : esignPack
+  const rangeId = isRangeId(params.range) ? params.range : DEFAULT_RANGE
 
   const source = getSource(pack.sourceId)
-  const range = { from: new Date('2026-06-01'), to: new Date('2026-08-31') }
+  const range = resolveRange(rangeId)
+  const bucket = bucketFor(rangeId)
 
   const metricIds = pack.kpis.map((k) => k.metric)
   const metrics = await source.getMetrics(metricIds, range)
@@ -31,6 +40,7 @@ export default async function Page({
         config={w}
         source={source}
         range={range}
+        bucket={bucket}
         format={kpi ? kpi.format : 'number'}
       />
     )
@@ -45,18 +55,28 @@ export default async function Page({
     return <KpiCard key={k.metric} config={k} metric={m} />
   })
 
+  const fmt = (d: Date) =>
+    d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+
   return (
     <main className="mx-auto max-w-5xl p-4">
       <h1 className="text-lg font-semibold">{pack.label}</h1>
+      <p className="mt-0.5 text-xs text-neutral-500">
+        {fmt(range.from)} to {fmt(range.to)}
+      </p>
 
       <nav className="mt-3 flex gap-2 text-sm">
-        <a href="/?pack=esign" className={esignClass}>
+        <Link href={'/?pack=esign&range=' + rangeId} className={esignClass}>
           E-Sign
-        </a>
-        <a href="/?pack=ecommerce" className={ecomClass}>
+        </Link>
+        <Link href={'/?pack=ecommerce&range=' + rangeId} className={ecomClass}>
           E-Commerce
-        </a>
+        </Link>
       </nav>
+
+      <div className="mt-3">
+        <RangePicker packId={pack.id} current={rangeId} />
+      </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">{cards}</div>
 

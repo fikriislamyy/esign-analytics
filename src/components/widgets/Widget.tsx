@@ -3,24 +3,36 @@ import { ChartFrame } from '@/components/charts/ChartFrame'
 import { RankedList } from '@/components/charts/RankedList'
 import { SeriesChart } from '@/components/charts/SeriesChart'
 import type { WidgetConfig } from '@/lib/analytics/pack-types'
-import type { AnalyticsSource, DateRange, MetricFormat } from '@/lib/analytics/types'
+import type {
+    AnalyticsSource,
+    Bucket,
+    DateRange,
+    MetricFormat,
+} from '@/lib/analytics/types'
 
 export async function Widget({
     config,
     source,
     range,
+    bucket = 'week',
     format = 'number',
 }: {
     config: WidgetConfig
     source: AnalyticsSource
     range: DateRange
+    bucket?: Bucket
     format?: MetricFormat
 }) {
     if (config.type === 'series') {
-        const s = await source.getSeries(config.metric, range, 'week')
+        const s = await source.getSeries(config.metric, range, bucket)
         return (
             <ChartFrame title={config.title}>
-                <SeriesChart points={s.points} format={format} chart={config.chart} />
+                <SeriesChart
+                    points={s.points}
+                    format={format}
+                    chart={config.chart}
+                    bucket={bucket}
+                />
             </ChartFrame>
         )
     }
